@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-"""
 Frame sampling and variable-length batching helpers for the frame path.
 
 - uniform_sample_indices: same math as the official CoCap reader
