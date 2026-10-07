@@ -1,19 +1,7 @@
-# Minimal Adaptive Selector (paper core, no reward / no training yet)
-#
-#   frame_features [B, M, D]
-#       -> Global Temporal Memory -> h0
-#       -> Sequential Policy (SELECT j / STOP, monotonic temporal order)
-#       -> Adaptive Stop (min / max budget)
-#       -> selected_indices [variable count per video]
 
 feature_dim: 512
 hidden_size: 256
-
-# --- adaptive stop budget (the ONLY hard rules; the policy itself decides
-#     whether to stop inside [min, max]) ---
 min_selected_frames: 2      # STOP forbidden before this many frames
 max_selected_frames: 16     # safety upper bound; force-stop here
-
-# --- candidates / decoding ---
 max_candidates: 1024        # static capacity of the policy head (M <= this)
 sample: true                # stochastic policy sampling; false = argmax
