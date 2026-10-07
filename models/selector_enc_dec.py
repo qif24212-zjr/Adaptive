@@ -29,12 +29,7 @@ from .selectors.base_selector import (SEL_INDICES, SEL_NUM_CANDIDATES,
 
 __all__ = ["SelectorTransformerEncoderDecoder"]
 
-# --------------------------------------------------------------------------
-# Register the SELECTOR config schema at import time (project-side extension;
-# upstream xmodaler/config/defaults.py is untouched). get_cfg() clones _C, so
-# any process that imports this module before building the config accepts
-# SELECTOR.* keys in the yaml.
-# --------------------------------------------------------------------------
+
 from xmodaler.config.defaults import _C  # noqa: E402
 
 if not hasattr(_C, "SELECTOR"):
