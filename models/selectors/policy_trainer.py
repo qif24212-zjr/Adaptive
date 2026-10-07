@@ -84,12 +84,10 @@ class SelectorPolicyTrainer:
         self.reward = reward
         self.gamma = gamma
         self.lambda_utility = lambda_utility
-        # method markers (asserted by the training script's preflight)
+       
         self.step_wise_reward = True          # r_t = dQ_t - lambda_c at EVERY select step
         self.advantage_normalization = True   # A_norm over valid steps for the policy loss
 
-        # captioner + heavy encoder frozen (heavy encoder is inside pruning,
-        # already under no_grad in forward; captioner is explicitly frozen)
         self.captioner.eval()
         for p in self.captioner.parameters():
             p.requires_grad_(False)
@@ -98,16 +96,14 @@ class SelectorPolicyTrainer:
                            + list(pruning.lightweight_encoder.parameters()))
         self.opt_selector = torch.optim.Adam(selector_params, lr=lr_selector)
         self.opt_critic = torch.optim.Adam(critic.parameters(), lr=lr_critic)
-        # epoch-based multiplicative decay matched to the formal run length
-        # (official CoCap design principle: lr(e) = lr0 * gamma^e; the
-        # diagnostic's StepLR(5, 0.5) decayed too fast for 20 epochs)
+    
         self.lr_decay_gamma = lr_decay_gamma
         self.scheduler_selector = torch.optim.lr_scheduler.LambdaLR(
             self.opt_selector, lr_lambda=lambda e: lr_decay_gamma ** e)
         self.scheduler_critic = torch.optim.lr_scheduler.LambdaLR(
             self.opt_critic, lr_lambda=lambda e: lr_decay_gamma ** e)
 
-    # ------------------------------------------------------------------ step
+
     def train_step(self, candidate_frames: Tensor, refs: Sequence[Sequence[str]]) -> Dict[str, float]:
         """One REINFORCE step. candidate_frames: (B, M, 3, H, W)."""
         self.opt_selector.zero_grad(set_to_none=True)
@@ -139,8 +135,7 @@ class SelectorPolicyTrainer:
             active = counts > t
             if not active.any():
                 break
-            # prefix = first t+1 selected frames; heavy CLIP encodes ONLY the
-            # valid prefix rows (no_grad, chunked), same as the main path
+         
             prefix_frames = sel_frames[:, :t + 1].contiguous()       # (B, t+1, C, H, W)
             prefix_mask = sel_frame_mask[:, :t + 1]                  # (B, t+1) long
             flat = prefix_frames.reshape(B * (t + 1), C, H, W)
@@ -162,13 +157,11 @@ class SelectorPolicyTrainer:
             q_prev[active] = q_t[active]
         reward_time = time.time() - t0
 
-        # returns + critic + losses
+ 
         G = discounted_returns(rewards, gamma=self.gamma)
         V = self.critic(out["hidden_states"]).squeeze(-1)   # (B, S)
         loss_util = self.critic.utility_loss(V.unsqueeze(-1), G, valid)
-        # ---- advantage normalization (variance reduction): only VALID
-        #      SELECT steps participate in mean/std; critic target is the
-        #      raw return (unchanged) ----
+     
         adv_raw = (G - V.detach()) * valid
         n_valid = max(int(valid.sum()), 1)
         adv_mean = adv_raw.sum() / n_valid
@@ -178,8 +171,7 @@ class SelectorPolicyTrainer:
         loss = loss_policy + self.lambda_utility * loss_util
 
         loss.backward()
-        # gradient norm over ALL trained params (selector + lightweight + critic),
-        # measured only — no clipping (method unchanged)
+      
         grad_norm = 0.0
         for p in list(self.pruning.selector.parameters()) + \
                 list(self.pruning.lightweight_encoder.parameters()) + \
@@ -234,7 +226,6 @@ class SelectorPolicyTrainer:
         self.scheduler_selector.step()
         self.scheduler_critic.step()
 
-    # ------------------------------------------------------------- checkpoint
     def save_checkpoint(self, path: str, epoch: int, config: Dict[str, Any], extra: Optional[Dict] = None):
         state = {
             "selector": self.pruning.selector.state_dict(),
