@@ -1,10 +1,4 @@
-# Frame-CoCap captioner training (supervised, teacher forcing only)
-#   CapERA train video -> uniform 32 RGB frames -> frozen CLIP ViT-B/16
-#   -> [B, 32, 512] -> FrameCaptionHead (trainable) -> CE loss
-#
-# No CIDEr reward / SCST / REINFORCE / Adaptive Selector here — this trains
-# ONLY the captioner, whose checkpoint then plugs into the Adaptive pipeline
-# via captioner.checkpoint in configs/adaptive_frame_pruning.yaml.
+
 
 num_frames: 32
 frame_sampling: uniform
@@ -13,19 +7,19 @@ clip_path: checkpoints/clip/ViT-B-16.pt
 max_t_len: 77
 image_size: [224, 224]
 
-freeze_frame_encoder: true      # phase 1: caption head only learns
+freeze_frame_encoder: true     
 
 training:
   epochs: 20
   batch_size: 8
   lr: 1.0e-4
-  lr_pretrained_embeddings: 1.0e-5   # CLIP word embeddings + tied decoder
+  lr_pretrained_embeddings: 1.0e-5   
   label_smoothing: 0.1
   seed: 0
   log_every_steps: 50
-  eval_every_steps: null             # val CIDEr per epoch (None = per epoch)
-  overfit_videos: 16                 # tiny overfit mode when --overfit passed
-  save_epochs: [5, 10, 20]           # epoch-numbered checkpoints + progression eval
+  eval_every_steps: null             
+  overfit_videos: 16                 
+  save_epochs: [5, 10, 20]           
   num_workers: 0
 
 data:
@@ -33,6 +27,6 @@ data:
   val_annotation: data/CapERA/captions_val.json
   train_video_root: datasets/CapERA/videos/Videos/Tra
   test_video_root: datasets/CapERA/videos/Videos/Test
-  features_dir: features/frame_cocap/clip_vitb16   # precomputed (32,512) per video
+  features_dir: features/frame_cocap/clip_vitb16  
 
 output_dir: experiments/frame_cocap
