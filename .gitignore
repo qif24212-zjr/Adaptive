@@ -1,4 +1,4 @@
-# Python
+
 __pycache__/
 *.py[cod]
 *.so
@@ -7,14 +7,14 @@ __pycache__/
 venv/
 env/
 
-# Model checkpoints
+
 *.pt
 *.pth
 *.ckpt
 *.bin
 *.safetensors
 
-# Datasets / videos
+
 datasets/
 *.mp4
 *.avi
@@ -26,16 +26,16 @@ datasets/
 *.tar.gz
 *.7z
 
-# Extracted features
+
 features/
 
-# Experiment outputs
+
 experiments/
 runs/
 wandb/
 tensorboard/
 
-# Logs / temporary files
+
 logs/
 *.log
 *.tmp
@@ -43,18 +43,18 @@ logs/
 .cache/
 .pytest_cache/
 
-# IDE / OS
+
 .vscode/
 .idea/
 .DS_Store
 
-# Secrets
+
 .env
 *.key
 *.pem
 
-# Temporary data
+
 data/temp/
 
-# Dataset-generated files
+
 data/
