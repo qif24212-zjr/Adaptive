@@ -1,5 +1,4 @@
-# -*- coding: utf-8 -*-
-"""
+
 Minimal Adaptive Selector — the paper-core sequential frame selection policy.
 
     frame_features [B, M, D]  (M candidate frames per video)
@@ -62,27 +61,23 @@ class AdaptiveSelector(nn.Module):
         self.min_selected_frames = min_selected_frames
         self.max_selected_frames = max_selected_frames
         self.max_candidates = max_candidates
-        self.sample = sample  # stochastic policy (True) vs argmax (False)
+        self.sample = sample 
 
-        # ---- Global Temporal Memory ----
-        self.memory_proj = nn.Linear(feature_dim, hidden_size)      # f_m
-        self.memory_pos = nn.Embedding(max_candidates, hidden_size)  # temporal_position_j (index j)
-        self.h0_proj = nn.Linear(hidden_size, hidden_size)          # W0: mean(memory) -> z0
-        self.h0_ln = nn.LayerNorm(hidden_size)                      # h0 = LayerNorm(z0)
+        self.memory_proj = nn.Linear(feature_dim, hidden_size)    
+        self.memory_pos = nn.Embedding(max_candidates, hidden_size)  
+        self.h0_proj = nn.Linear(hidden_size, hidden_size)          
+        self.h0_ln = nn.LayerNorm(hidden_size)                      
 
-        # ---- Sequential Policy (content-conditioned) ----
-        # candidate-specific input [x_j || xbar_t || delta_j || interaction_j || pos_j]
-        # -> z_candidate_j; logit_j = policy([h_t || z_candidate_j]);
-        # STOP has its own head over h_t (no hand-crafted stop bonus).
+ 
         self.candidate_mlp = nn.Sequential(
             nn.Linear(4 * feature_dim + hidden_size, hidden_size),
             nn.ReLU(inplace=True),
             nn.Linear(hidden_size, hidden_size),
         )
-        self.policy = nn.Linear(2 * hidden_size, 1)     # [h_t || z_candidate_j] -> logit_j
-        self.stop_head = nn.Linear(hidden_size, 1)      # separate STOP logit from h_t
+        self.policy = nn.Linear(2 * hidden_size, 1)     
+        self.stop_head = nn.Linear(hidden_size, 1)      
 
-        # ---- Incremental Visual Information ----
+
         self.incremental_mlp = nn.Sequential(
             nn.Linear(4 * feature_dim, hidden_size),
             nn.ReLU(inplace=True),
@@ -90,7 +85,7 @@ class AdaptiveSelector(nn.Module):
         )
         self.step_pos = nn.Embedding(max_selected_frames + 1, hidden_size)  # temporal_context_t
 
-        # ---- State Update ----
+
         self.lstm = nn.LSTM(input_size=hidden_size, hidden_size=hidden_size, num_layers=1)
 
     def forward(
@@ -118,25 +113,25 @@ class AdaptiveSelector(nn.Module):
         assert M > self.max_selected_frames, \
             "need M > max_selected_frames so a force-stop cannot exhaust candidates"
 
-        # ---- 1. Global Temporal Memory ----
-        pos = self.memory_pos(torch.arange(M, device=device))           # (M, H)
-        memory = torch.tanh(self.memory_proj(frame_features) + pos)     # m_j: (B, M, H)
-        z0 = self.h0_proj(memory.mean(dim=1))                           # z0: (B, H)
-        h = self.h0_ln(z0)                                              # h0 = LayerNorm(z0)
+   
+        pos = self.memory_pos(torch.arange(M, device=device))           
+        memory = torch.tanh(self.memory_proj(frame_features) + pos)     
+        z0 = self.h0_proj(memory.mean(dim=1))                          
+        h = self.h0_ln(z0)                                             
         c = torch.zeros(B, H, device=device)
 
-        # step-0 policy context: no selection yet -> use the global mean frame
-        x_cur = frame_features.mean(dim=1)                              # (B, D)
+     
+        x_cur = frame_features.mean(dim=1)                           
         bar_x = x_cur.clone()
 
-        # ---- episode state ----
+ 
         selected = torch.full((B, self.max_selected_frames), -1, dtype=torch.long, device=device)
         sel_mask = torch.zeros(B, self.max_selected_frames, dtype=torch.bool, device=device)
         counts = torch.zeros(B, dtype=torch.long, device=device)
         stop_step = torch.full((B,), -1, dtype=torch.long, device=device)
         active = torch.ones(B, dtype=torch.bool, device=device)
         last_idx = torch.full((B,), -1, dtype=torch.long, device=device)
-        # for policy-gradient training / critic (0 at STOP or padded steps)
+       
         action_log_probs = torch.zeros(B, self.max_selected_frames, device=device)
         hidden_states = torch.zeros(B, self.max_selected_frames, H, device=device)
         cand_valid = torch.ones(B, M, dtype=torch.bool, device=device) if frame_mask is None \
@@ -144,9 +139,8 @@ class AdaptiveSelector(nn.Module):
 
         j_range = torch.arange(M, device=device).unsqueeze(0)           # (1, M)
 
-        # ---- 2/3/4. sequential policy loop ----
         for t in range(self.max_selected_frames):
-            # ---- policy: candidate-specific conditioning, (B, M+1) logits ----
+   
             delta = frame_features - bar_x.unsqueeze(1)                # (B, M, D)
             interaction = frame_features * bar_x.unsqueeze(1)          # (B, M, D)
             pos_j = self.memory_pos(torch.arange(M, device=device))    # (M, H)
@@ -161,28 +155,21 @@ class AdaptiveSelector(nn.Module):
             ).squeeze(-1)                                              # (B, M)
             logits = torch.cat([logits_frame, self.stop_head(h)], dim=-1)  # (B, M+1)
 
-            # ---- action mask ----
+          
             forbid = torch.zeros(B, M + 1, dtype=torch.bool, device=device)
-            # monotonic temporal order: only j > last_selected_idx may be picked.
-            # This forbids BOTH previously selected frames (no duplicates) AND
-            # any frame at/before the current index (order is strictly increasing).
+           
             if t > 0:
                 forbid[:, :M] = j_range <= last_idx.unsqueeze(1)
-            # budget feasibility: while STOP is still forbidden (t < min),
-            # forbid choices that would exhaust the candidates and make the
-            # min_selected_frames budget unreachable (otherwise the action
-            # mask could be all-forbidden: last frame already taken + STOP
-            # masked -> deadlock with undefined argmax/sampling).
+           
             if t < self.min_selected_frames:
                 forbid[:, :M] |= j_range > (M - self.min_selected_frames + t)
-            # invalid candidates (padding)
+      
             forbid[:, :M] |= ~cand_valid
-            # adaptive stop: never stop at step 0, never before min_selected_frames
+         
             forbid[:, M] = (t == 0) | (counts < self.min_selected_frames)
 
             masked_logits = logits.masked_fill(forbid, float("-inf"))
 
-            # ---- choose action (only for still-active episodes) ----
             action = torch.full((B,), -1, dtype=torch.long, device=device)
             if active.any():
                 probs = torch.softmax(masked_logits[active], dim=-1)
@@ -199,26 +186,25 @@ class AdaptiveSelector(nn.Module):
             just_stopped = active & is_stop
             just_selected = active & ~is_stop
 
-            # ---- STOP: end those episodes ----
+        
             stop_step[just_stopped] = t
             active = active & ~just_stopped
 
-            # ---- SELECT j: incremental info + LSTM update ----
+       
             if just_selected.any():
-                # critic input: the PRE-update state h_t that produced a_t
+              
                 hidden_states[just_selected, t] = h[just_selected]
-                # gather for ALL rows (STOP/inactive rows get a harmless dummy
-                # index); torch.where below keeps state only for just_selected
+               
                 safe_action = action.clamp(min=0, max=M - 1)
                 x_new = frame_features[torch.arange(B, device=device), safe_action]   # (B, D)
 
-                # incremental visual information
+          
                 delta = x_new - bar_x
                 hadamard = x_new * bar_x
                 incremental = self.incremental_mlp(
                     torch.cat([x_new, bar_x, delta, hadamard], dim=-1))              # (B, H)
 
-                # state update: LSTM(incremental + temporal_context_t, h_t, c_t)
+              
                 t_ctx = self.step_pos(torch.full((B,), t, dtype=torch.long, device=device))
                 _, (h_n, c_n) = self.lstm(
                     (incremental + t_ctx).unsqueeze(0), (h.unsqueeze(0), c.unsqueeze(0)))
@@ -242,7 +228,7 @@ class AdaptiveSelector(nn.Module):
             if not active.any():
                 break
 
-        # force-stop: episodes still active hit the budget
+        
         stop_step[active] = self.max_selected_frames
 
         return {
@@ -250,7 +236,7 @@ class AdaptiveSelector(nn.Module):
             "selected_mask": sel_mask,
             "selected_count": counts,
             "stop_step": stop_step,
-            # policy-gradient / critic extras (0 at STOP and padded steps):
+            
             "action_log_probs": action_log_probs,   # (B, max_sel) log pi(a_t|h_t)
             "hidden_states": hidden_states,         # (B, max_sel, H) pre-update h_t
         }
