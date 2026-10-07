@@ -104,7 +104,7 @@ class CaptionReward:
                            "corpus_refs (all reference captions) for a real "
                            "reward signal.")
 
-    # ------------------------------------------------------------------ CIDEr
+ 
     def cider_scores(self, hyps: Sequence[str], refs: Sequence[Sequence[str]]) -> List[float]:
         """Per-sample CIDEr of `hyps` against reference caption sets `refs`."""
         if self._corpus is not None:
@@ -115,7 +115,7 @@ class CaptionReward:
         _, scores = self._cider.compute_score(gts, res)
         return [float(s) for s in scores]
 
-    # ------------------------------------------------------------- rewards
+
     def terminal_rewards(
             self,
             captions: Sequence[str],        # caption from the FINAL selection
