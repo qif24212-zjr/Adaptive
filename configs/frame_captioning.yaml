@@ -1,24 +1,10 @@
-# Frame-level captioning path for CoCap
-#   RGB frames -> FrameEncoder -> [B, N, D] -> CoCap CaptionHead -> logits
-#
-# N (num_frames) is variable per sample; within a batch samples are padded
-# to N_max and masked. To change the frame budget, replace num_frames with
-# any of 4 / 8 / 12 / 16 (the selector phase will later decide N per video).
 
-# --- frame budget & sampling (later driven by the Adaptive Frame Pruner) ---
-num_frames: 8                # 4 | 8 | 12 | 16 | ...
-frame_sampling: uniform      # uniform | rand
-
-# --- frame encoder ---
-frame_encoder: clip_vitb16   # clip_vitb16 (CLIP ViT-B/16, 512-d native, CoCap backbone)
-                             # maxvit_s    (timm MaxViT-S, 768 -> 512 projection)
-feature_dim: 512             # must match CoCap embed_dim (CaptionHead video_embeddings)
+num_frames: 8                
+frame_sampling: uniform      
+frame_encoder: clip_vitb16                             
+feature_dim: 512             
 image_size: [224, 224]
-
-# --- caption head (official CoCap CaptionHead, pretrained CLIP init) ---
 clip_path: checkpoints/clip/ViT-B-16.pt
 max_t_len: 77
-vocab_size: 49408            # CLIP BPE (PAD=0, BOS=49406, EOS=49407)
-
-# --- decoding ---
-decode: greedy               # official CoCap has greedy only (no beam search)
+vocab_size: 49408            
+decode: greedy              
