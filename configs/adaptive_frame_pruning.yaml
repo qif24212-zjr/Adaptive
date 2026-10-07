@@ -1,0 +1,76 @@
+# Adaptive Frame Pruning — full paper pipeline config
+#   candidate RGB frames -> lightweight features -> Adaptive Selector
+#   -> selected RGB frames -> heavy CLIP (selected only) -> CoCap CaptionHead
+#   -> CIDEr-based reward -> critic + REINFORCE training
+
+candidate_frames: 32          # M candidate frames per video (uniform sample)
+
+# --- adaptive budget (SELECT/STOP; max is a safety bound, NOT a fixed budget) ---
+min_selected_frames: 2
+max_selected_frames: 16
+
+# --- selector ---
+selector:
+  feature_dim: 512
+  hidden_size: 256
+  max_candidates: 1024
+  sample: true                # stochastic policy (REINFORCE needs sampling)
+
+# --- lightweight selector front-end ---
+lightweight_encoder:
+  feature_dim: 512
+  width: 64
+
+# --- frame encoder (heavy CLIP, frozen) ---
+frame_encoder: clip_vitb16
+clip_path: checkpoints/clip/ViT-B-16.pt
+
+# --- caption-aware reward ---
+reward:
+  metric: cider
+  lambda_cost: 0.01           # cost per selected frame
+  gamma: 1.0
+  mode: full                  # the TRAINER now always uses the paper per-step
+                              # credit: every SELECT step gets r_t = dQ_t - lambda_c
+                              # (Q_t = CIDEr of the first t+1 selected frames);
+                              # "terminal" remains available in CaptionReward for
+                              # reference/ablation but is not used by training
+
+# --- utility critic ---
+critic:
+  hidden_dim: 128
+  lambda_utility: 1.0
+
+# --- training ---
+training:
+  epochs: 20
+  lr_selector: 1.0e-4
+  lr_critic: 1.0e-4
+  lr_decay_gamma: 0.95         # epoch-based multiplicative decay
+                               # lr(e) = lr0 * 0.95^e (official CoCap principle,
+                               # matched to the 20-epoch formal run)
+  batch_size: 2
+  max_batches_per_epoch: null  # null = full dataset; set small for dry-run
+  log_every: 1                 # epochs
+  seed: 0
+
+# --- captioner (frozen during selector training) ---
+captioner:
+  freeze: true
+  checkpoint: experiments/frame_cocap/checkpoints/epoch_20.pt   # FIXED for the
+                                                # credit-fix diagnostic: the
+                                                # fixed-budget diagnostic showed
+                                                # epoch20 has the clearest monotone
+                                                # frame-budget response
+  max_t_len: 77
+
+# --- data (CapERA) ---
+data:
+  video_root: datasets/CapERA/videos/Videos/Tra     # train split (NOT test)
+  annotation: data/CapERA/captions_train.json
+  split: train
+  image_size: [224, 224]
+  frames_cache_dir: features/frame_cocap/frames/train   # predecoded uint8 frames
+
+# --- outputs ---
+output_dir: experiments/adaptive_main_epoch10

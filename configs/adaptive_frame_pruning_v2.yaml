@@ -1,0 +1,43 @@
+candidate_frames: 32
+min_selected_frames: 2
+max_selected_frames: 16
+selector:
+  feature_dim: 512
+  hidden_size: 256
+  max_candidates: 1024
+  sample: true
+lightweight_encoder:
+  feature_dim: 512
+  width: 64
+frame_encoder: clip_vitb16
+clip_path: checkpoints/clip/ViT-B-16.pt
+reward:
+  metric: cider
+  lambda_cost: 0.01
+  gamma: 1.0
+  mode: full
+critic:
+  hidden_dim: 128
+  lambda_utility: 1.0
+training:
+  epochs: 20
+  lr_selector: 0.0001
+  lr_critic: 0.0001
+  lr_decay_gamma: 0.95
+  batch_size: 2
+  max_batches_per_epoch: null
+  log_every: 1
+  seed: 0
+captioner:
+  freeze: true
+  checkpoint: experiments/frame_cocap/checkpoints/epoch_20.pt
+  max_t_len: 77
+data:
+  video_root: datasets/CapERA/videos/Videos/Tra
+  annotation: data/CapERA/captions_train.json
+  split: train
+  image_size:
+  - 224
+  - 224
+  frames_cache_dir: features/frame_cocap/frames/train
+output_dir: experiments/adaptive_main_epoch20_v2

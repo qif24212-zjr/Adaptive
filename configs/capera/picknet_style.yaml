@@ -1,0 +1,123 @@
+# CapERA PickNet-style sequential frame selection skeleton (Phase 2).
+# Identical to xe_baseline.yaml except:
+#   - META_ARCHITECTURE: SelectorTransformerEncoderDecoder (selector in model)
+#   - MAX_FEAT_NUM: 10 (dataset returns ALL candidate frames, no uniform-8)
+#   - SELECTOR section: PickNetStyleSelector (GRU + MLP, sequential Pick/Drop)
+#   - OUTPUT_DIR: experiments/capera_picknet_style
+# The uniform-8 baseline (configs/capera/xe_baseline.yaml) is untouched.
+
+DATASETS:
+  TRAIN: 'CapERADataset'
+  VAL: 'CapERADataset'
+  TEST: 'CapERADataset'
+
+DATALOADER:
+  TRAIN_BATCH_SIZE: 64
+  TEST_BATCH_SIZE: 32
+  NUM_WORKERS: 4
+  FEATS_FOLDER: '/root/autodl-tmp/uav_adaptive_captioning/features/CapERA/maxvit_small_tf_224'
+  ANNO_FOLDER: '/root/autodl-tmp/uav_adaptive_captioning/data/CapERA'
+  SEQ_PER_SAMPLE: 1
+  MAX_FEAT_NUM: 10            # candidate frames per video (2 fps); selector decides
+
+ENGINE:
+  NAME: 'CapEraTrainer'
+
+SCHEDULED_SAMPLING:
+  START_EPOCH: 0
+  INC_EVERY_EPOCH: 5
+  INC_PROB: 0.05
+  MAX_PROB: 0.25
+
+SELECTOR:
+  NAME: 'PickNetStyleSelector'
+  HIDDEN_SIZE: 256
+  INIT_PICK_PROB: 0.75
+  TARGET_RATIO: 0.5           # expected selection ratio for the budget regularizer
+  LAMBDA_BUDGET: 1.0          # differentiable budget regularizer weight (NOT PickNet's RL reward)
+
+MODEL:
+  VOCAB_SIZE: 1891
+  META_ARCHITECTURE: 'SelectorTransformerEncoderDecoder'
+  ENCODER: 'TransformerEncoder'
+  ENCODER_DIM: 512
+  DECODER: 'TransformerDecoder'
+  DECODER_DIM: 512
+  PREDICTOR: 'BasePredictor'
+  PRED_DROPOUT: 0.5
+  MAX_SEQ_LEN: 26
+
+  TOKEN_EMBED:
+    NAME: 'TokenBaseEmbedding'
+    DIM: 512
+    ACTIVATION: 'none'
+    USE_NORM: True
+    DROPOUT: 0.1
+    POSITION: 'SinusoidEncoding'
+
+  VISUAL_EMBED:
+    NAME: 'VisualBaseEmbedding'
+    IN_DIM: 768                # MaxViT-S feature dim (selector input dim)
+    OUT_DIM: 512
+    ACTIVATION: 'relu'
+    USE_NORM: True
+    DROPOUT: 0.5
+
+  BERT:
+    HIDDEN_SIZE: 512
+    HIDDEN_DROPOUT_PROB: 0.1
+    HIDDEN_ACT: "relu"
+    NUM_ATTENTION_HEADS: 8
+    INTERMEDIATE_SIZE: 2048
+    INTERMEDIATE_DROP: 0.1
+    FFN_DROPOUT_PROB: 0.1
+    ATTENTION_PROBS_DROPOUT_PROB: 0.1
+    NUM_HIDDEN_LAYERS: 6
+    NUM_GENERATION_LAYERS: 6
+
+SOLVER:
+  NAME: 'Adam'
+  EPOCH: 50
+  CHECKPOINT_PERIOD: 5
+  EVAL_PERIOD: 5
+  BASE_LR: 0.0001
+  BIAS_LR_FACTOR: 1.0
+  WEIGHT_DECAY: 0.0
+  WEIGHT_DECAY_NORM: 0.0
+  WEIGHT_DECAY_BIAS: 0.0
+  MOMENTUM: 0.9
+  DAMPENING: 0.0
+  NESTEROV: 0.0
+  BETAS: [0.9, 0.999]
+  EPS: 1e-8
+  GRAD_CLIP: 0.1
+  GRAD_CLIP_TYPE: 'norm'
+  NORM_TYPE: 2.0
+  WRITE_PERIOD: 20
+
+LR_SCHEDULER:
+  NAME: 'WarmupLinear'
+  WARMUP: 5
+
+LOSSES:
+  NAMES: ['LabelSmoothing']
+  LABELSMOOTHING: 0.1
+
+DECODE_STRATEGY:
+  NAME: 'BeamSearcher'
+  BEAM_SIZE: 5
+
+INFERENCE:
+  NAME: 'COCOEvaler'
+  VOCAB: '/root/autodl-tmp/uav_adaptive_captioning/data/CapERA/vocabulary.txt'
+  ID_KEY: 'image_id'
+  VALUE: 'caption'
+  VAL_ANNFILE: '/root/autodl-tmp/uav_adaptive_captioning/data/CapERA/captions_val.json'
+  TEST_ANNFILE: '/root/autodl-tmp/uav_adaptive_captioning/data/CapERA/captions_test.json'
+  GENERATION_MODE: True
+  VAL_EVAL_START: 0
+  TEST_EVAL_START: 50
+
+OUTPUT_DIR: '/root/autodl-tmp/uav_adaptive_captioning/experiments/capera_picknet_style'
+SEED: 42
+CUDNN_BENCHMARK: True

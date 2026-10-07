@@ -1,0 +1,60 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+*.egg-info/
+.venv/
+venv/
+env/
+
+# Model checkpoints
+*.pt
+*.pth
+*.ckpt
+*.bin
+*.safetensors
+
+# Datasets / videos
+datasets/
+*.mp4
+*.avi
+*.mov
+*.mkv
+*.webm
+*.zip
+*.tar
+*.tar.gz
+*.7z
+
+# Extracted features
+features/
+
+# Experiment outputs
+experiments/
+runs/
+wandb/
+tensorboard/
+
+# Logs / temporary files
+logs/
+*.log
+*.tmp
+*.temp
+.cache/
+.pytest_cache/
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+
+# Secrets
+.env
+*.key
+*.pem
+
+# Temporary data
+data/temp/
+
+# Dataset-generated files
+data/
