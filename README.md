@@ -1,6 +1,6 @@
 # Adaptive Frame Pruning with Temporal Context for Video Captioning 🚀
 
-Our method adaptively prunes redundant video frames for efficient video captioning by:
+Our method adaptively prunes redundant video frames for video captioning by:
 
 1. uniformly sampling a pool of candidate frames from the input video;
 2. estimating each candidate frame's contextual contribution based on its temporal relationships with neighboring frames and its relevance to a learnable task query;
