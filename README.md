@@ -1,76 +1,173 @@
-Temporal Context-Aware Adaptive Frame Pruning for Video Captioning
-https://img.shields.io/badge/License-MIT-green.svg
-https://img.shields.io/badge/Python-3.10-blue.svg
-https://img.shields.io/badge/PyTorch-2.x-ee4c2c.svg
+# Adaptive Frame Pruning with Temporal Context for Video Captioning 🚀
 
-This repository provides the official implementation of our temporal context-aware adaptive frame pruning method for video captioning. The method preserves captioning quality under substantial input reduction by adaptively selecting informative frames.
+Our method adaptively prunes redundant video frames for efficient video captioning by:
 
-Our approach models local temporal dependencies with radius r=3 and estimates frame contributions using a learnable query optimized directly with the captioning objective. A Straight-Through Estimator (STE) enables gradient propagation through the hard Top-8 frame selection process.
+1. uniformly sampling a pool of candidate frames from the input video;
+2. estimating each candidate frame's contextual contribution based on its temporal relationships with neighboring frames and its relevance to a learnable task query;
+3. selecting the top-\(K\) informative frames and feeding their visual tokens into the original captioning model.
 
- Experimental Protocol
-Our evaluation follows a 32-to-8 candidate-frame protocol to balance temporal coverage and computational efficiency:
+The frame pruning module is trained end-to-end using the captioning loss, without requiring explicit frame-level annotations.
+# 1. Installation ⚙️
 
-Candidate Pool: 32 frames uniformly sampled at equal temporal intervals.
+First, clone the repository:
 
-Retention Budget: 8 frames are dynamically retained according to their learned contributions, corresponding to a 25% retention ratio and a 75% reduction in input frames.
+```bash
+git clone https://github.com/qif24212-zjr/Adaptive.git
+cd Adaptive
+```
 
-Optimization: During training, the frame encoder is frozen, while the scoring network and captioning model are optimized. The temporal context weight is set to λ_ctx = 1.
+Then create and activate the Conda environment:
 
-We evaluate on the MSVD dataset (1,970 short video clips; 1,200 train, 100 val, 670 test) and validate generalization on long-duration drone videos using the WebUAV-3M dataset. Performance is measured with BLEU-4, METEOR, ROUGE-L, and CIDEr. We compare against baselines including Uniform Sampling, Random Selection, AdaFrame, PickNet, SwinBERT, VASTA, and PEEK.
+```bash
+conda create -n adaptive-frame-pruning python=3.10 -y
+conda activate adaptive-frame-pruning
+```
 
-Dataset Access
-The following links provide access to the datasets used in our experiments.
+Install PyTorch with CUDA 12.1 support:
 
-MSVD (Microsoft Research Video Description Corpus)
-
-Kaggle download (recommended, most stable):
-https://www.kaggle.com/datasets/mabeelabo/msvd-dataset
-
-Original project reference (UT Austin):
-https://www.cs.utexas.edu/users/ml/clamp/video/maccd.html
-
-
-WebUAV-3M
-
-Official GitHub page:
-https://github.com/flycma/WebUAV-3M
-
-The dataset contains over 3 million high-definition drone video frames and is very large. The official GitHub page provides detailed application instructions and download links via Google Drive and Baidu Netdisk.
-
- Project Structure
-The codebase is organized into modular directories for configurations, models, and execution scripts.
-
-configs/
-
-capera/: YAML configuration files for different experimental setups, including adaptive_frame_pruning.yaml, adaptive_frame_pruning_v2.yaml, adaptive_selector.yaml, frame_captioning.yaml, and frame_captioning_training.yaml. It also includes baseline configurations such as picknet_style.yaml and xe_baseline.yaml.
-
-models/
-
-frame_cocap/: Core video captioning modules, including frame_sampling.py, frame_video_captioner.py, sensitivity_eval.py, and training.py.
-
-selectors/: Adaptive frame selection architectures, including adaptive_selector.py, base_selector.py, picknet_style_selector.py, and selector_enc_dec.py. It also contains reinforcement learning and reward components such as caption_reward.py, policy_trainer.py, and utility_critic.py.
-
-scripts/
-
-Data Preparation: check_msvd.py, prepare_msvd.py, preprocess_capera.py, and predecode_capera_frames.py.
-
-Feature Extraction: extract_capera_feats.py and extract_frame_cocap_feats.py.
-
-Training: Training launch scripts such as train_capera.py, train_adaptive_frame_pruning.py, train_frame_cocap.py, train_capera_picknet.sh, and train_capera_xe.sh.
-
-Inference & Evaluation: infer_adaptive_frame_pruning.py, infer_frame_cocap.py, eval_capera.sh, eval_capera_picknet.sh, and eval_captioner_progression.py.
-
-Baselines & Analysis: run_uniform8_baseline.py, fixed_budget_sensitivity.py, and reward_sanity_check.py.
-
-Testing: Smoke tests for various components, including smoke_test_capera.py, smoke_test_frame_cocap.py, smoke_test_picknet.py, and verify_capera_era.py.
-
- Environment Setup
-conda create -n capera python=3.10
-conda activate capera
-
-Install PyTorch (adjust the CUDA version if necessary)
+```bash
 pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
+```
 
-Install project dependencies
-pip install -e .
-pip install -r requirements.txt
+Install the remaining dependencies according to the project configuration.
+
+**Note:** A compatible NVIDIA driver is required to run PyTorch with CUDA support. You can verify the installation with:
+
+```bash
+python -c "import torch; print('PyTorch:', torch.__version__); print('CUDA available:', torch.cuda.is_available()); print('CUDA version:', torch.version.cuda)"
+```
+
+## Potential Issues
+
+1. Missing packages: If you encounter `ModuleNotFoundError`, make sure all required dependencies are installed in the active environment.
+2. CUDA compatibility: Ensure that your PyTorch installation is compatible with your CUDA environment.
+3. Configuration paths: Check that the dataset paths and pretrained checkpoint paths in the YAML configuration files are correctly set before running experiments.
+# 2. Repository Structure 📁
+
+```text
+Adaptive/
+├── configs/                          # Experiment configurations
+│   ├── capera/                       # CAPERA baseline configurations
+│   ├── adaptive_frame_pruning.yaml   # Frame pruning configuration
+│   ├── adaptive_frame_pruning_v2.yaml
+│   ├── adaptive_selector.yaml        # Adaptive selector configuration
+│   ├── frame_captioning.yaml         # Captioning configuration
+│   └── frame_captioning_training.yaml
+├── models/
+│   ├── frame_cocap/                  # Frame sampling and captioning
+│   │   ├── frame_sampling.py
+│   │   ├── frame_video_captioner.py
+│   │   ├── sensitivity_eval.py
+│   │   └── training.py
+│   ├── selectors/                    # Frame selection methods
+│   │   ├── adaptive_frame_cocap.py
+│   │   ├── adaptive_frame_pruning.py
+│   │   ├── adaptive_selector.py
+│   │   ├── base_selector.py
+│   │   ├── caption_reward.py
+│   │   ├── lightweight_frame_encoder.py
+│   │   ├── picknet_style_selector.py
+│   │   ├── policy_trainer.py
+│   │   └── utility_critic.py
+│   └── selector_enc_dec.py           # Selector encoder-decoder
+├── scripts/                          # Training, inference, and evaluation
+│   ├── prepare_msvd.py               # Prepare MSVD data
+│   ├── train_adaptive_frame_pruning.py
+│   ├── infer_adaptive_frame_pruning.py
+│   ├── run_uniform8_baseline.py      # Uniform-8 baseline
+│   ├── eval_capera.sh                # CAPERA evaluation
+│   └── ...
+└── README.md
+```
+
+Notes:
+
+- `configs/` contains configuration files for frame pruning, selection, and captioning experiments.
+- `models/frame_cocap/` contains frame sampling, captioning, and training components.
+- `models/selectors/` contains frame selection strategies and related scoring and training modules.
+- `scripts/` provides entry points for data preparation, training, inference, and evaluation.
+
+# 3. Datasets 📦
+
+The following datasets are used in our experiments.
+
+### MSVD (Microsoft Research Video Description Corpus)
+
+- **Official repository:** https://github.com/microsoft/Microsoft-Research-Video-Description-Corpus
+
+
+MSVD contains 1,970 short video clips with multiple natural-language descriptions. We follow the standard split of 1,200 training videos, 100 validation videos, and 670 test videos.
+
+### WebUAV-3M
+
+- **Official GitHub repository:** https://github.com/983632847/WebUAV-3M
+
+WebUAV-3M contains over 3 million high-definition frames from drone videos. Please refer to the official repository for dataset access instructions and download links. Due to its large size, ensure that sufficient storage is available before downloading and preparing the dataset.
+
+# 4. Support 🛠️
+
+If you meet issues, please open a GitHub issue with:
+- Operating system and CUDA version
+- Full error log
+- Script and command-line arguments
+
+If you need further assistance, please contact **Jiaren Zou** at [jiarenzou@acm.org](mailto:jiarenzou@acm.org).
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
